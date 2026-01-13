@@ -105,6 +105,22 @@ object SampleData {
             "Joonas",
             "Have you tried writing build.gradle with KTS?"
         ),
+        Message(
+            "Joonas",
+            "Test!"
+        ),
+        Message(
+            "Joonas",
+            "Test!"
+        ),
+        Message(
+            "Joonas",
+            "Test!"
+        ),
+        Message(
+            "Joonas",
+            "Test!"
+        )
     )
 }
 
