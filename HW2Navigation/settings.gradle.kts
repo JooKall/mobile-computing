@@ -19,6 +19,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "HW1ComposeTutorial"
+rootProject.name = "HW2Navigation"
 include(":app")
  

@@ -1,6 +1,5 @@
-package com.example.hw1composetutorial
+package com.example.hw2navigation
 
-import android.content.res.Configuration
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -19,9 +18,17 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,7 +39,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.example.hw1composetutorial.ui.theme.HW1ComposeTutorialTheme
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.example.hw2navigation.ui.theme.HW2NavigationTheme
+import kotlinx.serialization.Serializable
 
 /**
  * SampleData for Jetpack Compose Tutorial
@@ -107,43 +118,135 @@ object SampleData {
         ),
         Message(
             "Joonas",
-            "Test!"
+            "TEST!"
         ),
         Message(
             "Joonas",
-            "Test!"
+            "TEST!"
         ),
         Message(
             "Joonas",
-            "Test!"
+            "TEST!"
         ),
         Message(
             "Joonas",
-            "Test!"
-        )
+            "TEST!"
+        ),
     )
 }
 
-/*class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContent {
-            HW1ComposeTutorialTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
-                    MessageCard(Message("Android", "Jetpack Compose"))
-                }
-            }
-        }
-    }
-}*/
+@Serializable
+object Conversation
+
+@Serializable
+object Settings
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            HW1ComposeTutorialTheme {
-                Conversation(SampleData.conversationSample)
+            HW2NavigationTheme {
+                MyAppNavHost()
             }
+        }
+    }
+}
+
+@Composable
+fun MyAppNavHost() {
+    val navController = rememberNavController()
+
+    NavHost(
+        navController = navController,
+        startDestination = Conversation
+    ) {
+        composable<Conversation> {
+            ConversationScreen(
+                onNavigateToSettings = {
+                    navController.navigate(Settings)
+                }
+            )
+        }
+        composable<Settings> {
+            SettingsScreen(
+                onNavigateBack = {
+                    navController.navigate(Conversation) {
+                        popUpTo(Conversation) {
+                            inclusive = true
+                        }
+                    }
+                }
+            )
+        }
+    }
+}
+
+// More info about bars (I got the example here): https://developer.android.com/develop/ui/compose/components/app-bars
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ConversationScreen(
+    onNavigateToSettings: () -> Unit
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.primary,
+                ),
+                title = {
+                    Text("Conversation")
+                },
+                actions = {
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(
+                            painter = painterResource(R.drawable.settings_24px),
+                            contentDescription = "Settings"
+                        )
+                    }
+                }
+            )
+        },
+    )
+    { innerPadding ->
+        Column(modifier = Modifier.padding(innerPadding)) {
+            Conversation(SampleData.conversationSample)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsScreen(
+    onNavigateBack: () -> Unit
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.primary,
+                ),
+                title = {
+                    Text("Settings")
+                },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                },
+            )
+        },
+    )
+    { innerPadding ->
+        Column(modifier = Modifier.padding(innerPadding)) {
+            Text(
+                text = "This is the settings view",
+                color = MaterialTheme.colorScheme.primary
+            )
         }
     }
 }
@@ -187,7 +290,9 @@ fun MessageCard(msg: Message) {
                 // surfaceColor color will be changing gradually from primary to surface
                 color = surfaceColor,
                 // animateContentSize will change the Surface size gradually
-                modifier = Modifier.animateContentSize().padding(1.dp)
+                modifier = Modifier
+                    .animateContentSize()
+                    .padding(1.dp)
             ) {
                 Text(
                     text = msg.body,
@@ -214,25 +319,7 @@ fun Conversation(messages: List<Message>) {
 @Preview
 @Composable
 fun PreviewConversation() {
-    HW1ComposeTutorialTheme {
-        Conversation(SampleData.conversationSample)
-    }
-}
-
-
-@Preview(name = "Light Mode")
-@Preview(
-    uiMode = Configuration.UI_MODE_NIGHT_YES,
-    showBackground = true,
-    name = "Dark Mode"
-)
-@Composable
-fun PreviewMessageCard() {
-    HW1ComposeTutorialTheme {
-        Surface {
-            MessageCard(
-                msg = Message("Joonas", "Hey, take a look at Jetpack Compose, it's great!")
-            )
-        }
+    HW2NavigationTheme {
+        MyAppNavHost()
     }
 }
