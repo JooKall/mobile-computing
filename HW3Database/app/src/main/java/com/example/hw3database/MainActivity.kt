@@ -3,9 +3,11 @@ package com.example.hw3database
 import android.content.Context
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
@@ -49,7 +51,6 @@ import androidx.core.net.toUri
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.room.Room
 import coil3.compose.rememberAsyncImagePainter
 import com.example.hw3database.ui.theme.HW3DatabaseTheme
 import kotlinx.serialization.Serializable
@@ -156,30 +157,30 @@ data class Message(val author: String, val body: String)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val db = AppDatabase.getDatabase(this)
+        val userDao = db.userDao()
+
+        var initialUser: User
+
+        val users = userDao.getAll()
+        if (users.isEmpty()) {
+            userDao.insertUsers(User( username = "Joonas"))
+            initialUser = userDao.getUser()
+        } else {
+            initialUser = userDao.getUser()
+        }
         setContent {
             HW3DatabaseTheme {
-                MyAppNavHost()
+                MyAppNavHost(initialUser, userDao)
             }
         }
     }
 }
 
 @Composable
-fun MyAppNavHost() {
+fun MyAppNavHost(initialUser: User, userDao: UserDao) {
     val navController = rememberNavController()
-    val context = LocalContext.current
-    val db = AppDatabase.getDatabase(context)
-    val userDao = db.userDao()
-
-    var user by remember { mutableStateOf(User( username = "Joonas")) }
-
-    val users = userDao.getAll()
-
-    if (users.isEmpty()) {
-        userDao.insertUsers(user)
-    } else {
-        user = userDao.getUser()
-    }
+    var user by remember { mutableStateOf(initialUser) }
 
     NavHost(
         navController = navController,
@@ -353,13 +354,17 @@ fun SettingsScreen(
 fun ProfileImage(user: User, onProfileChange: (User) -> Unit) {
     val context = LocalContext.current
 
-    val launcher =
-        rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-            if (uri != null){
-                val savedImageUri = savePickedImage(context, uri, "profile_picture.jpg")
-                onProfileChange(user.copy(imageUri = savedImageUri.toString()))
-            }
+    val pickMedia = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        // Callback is invoked after the user selects a media item or closes the
+        // photo picker.
+        if (uri != null) {
+            val savedImageUri = savePickedImage(context, uri, "profile_picture.jpg")
+            val uriWithVersion = savedImageUri.toString() + "?${System.currentTimeMillis()}"
+            onProfileChange(user.copy(imageUri = uriWithVersion))
+        } else {
+            Log.d("PhotoPicker", "No media selected")
         }
+    }
 
     Column {
         Image(
@@ -369,7 +374,7 @@ fun ProfileImage(user: User, onProfileChange: (User) -> Unit) {
                 .size(128.dp)
                 .clip(CircleShape)
                 .border(1.5.dp, MaterialTheme.colorScheme.secondary, CircleShape)
-                .clickable { launcher.launch("image/*") }
+                .clickable { pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
         )
     }
 }
@@ -403,10 +408,10 @@ fun UsernameInput(
 }
 
 
-@Preview
+/*@Preview
 @Composable
 fun PreviewConversation() {
     HW3DatabaseTheme {
         MyAppNavHost()
     }
-}
+}*/
