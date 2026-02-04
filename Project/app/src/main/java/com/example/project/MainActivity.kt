@@ -1,6 +1,7 @@
-package com.example.hw4sensorsandnotifications
+package com.example.project
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
@@ -21,6 +22,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -56,107 +58,15 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import coil3.compose.rememberAsyncImagePainter
-import com.example.hw4sensorsandnotifications.ui.theme.HW4SensorsAndNotificationsTheme
+import com.example.project.ui.theme.ProjectTheme
 import kotlinx.serialization.Serializable
 import java.io.File
-
-/**
- * SampleData for Jetpack Compose Tutorial
- */
-object SampleData {
-    // Sample conversation data
-    val conversationSample = listOf(
-        Message(
-            "Joonas",
-            "Test...Test...Test..."
-        ),
-        Message(
-            "Joonas",
-            """List of Android versions:
-            |Android KitKat (API 19)
-            |Android Lollipop (API 21)
-            |Android Marshmallow (API 23)
-            |Android Nougat (API 24)
-            |Android Oreo (API 26)
-            |Android Pie (API 28)
-            |Android 10 (API 29)
-            |Android 11 (API 30)
-            |Android 12 (API 31)""".trim()
-        ),
-        Message(
-            "Joonas",
-            """I think Kotlin is my favorite programming language.
-            |It's so much fun!""".trim()
-        ),
-        Message(
-            "Joonas",
-            "Searching for alternatives to XML layouts..."
-        ),
-        Message(
-            "Joonas",
-            """Hey, take a look at Jetpack Compose, it's great!
-            |It's the Android's modern toolkit for building native UI.
-            |It simplifies and accelerates UI development on Android.
-            |Less code, powerful tools, and intuitive Kotlin APIs :)""".trim()
-        ),
-        Message(
-            "Joonas",
-            "It's available from API 21+ :)"
-        ),
-        Message(
-            "Joonas",
-            "Writing Kotlin for UI seems so natural, Compose where have you been all my life?"
-        ),
-        Message(
-            "Joonas",
-            "Android Studio next version's name is Arctic Fox"
-        ),
-        Message(
-            "Joonas",
-            "Android Studio Arctic Fox tooling for Compose is top notch ^_^"
-        ),
-        Message(
-            "Joonas",
-            "I didn't know you can now run the emulator directly from Android Studio"
-        ),
-        Message(
-            "Joonas",
-            "Compose Previews are great to check quickly how a composable layout looks like"
-        ),
-        Message(
-            "Joonas",
-            "Previews are also interactive after enabling the experimental setting"
-        ),
-        Message(
-            "Joonas",
-            "Have you tried writing build.gradle with KTS?"
-        ),
-        Message(
-            "Joonas",
-            "TEST!"
-        ),
-        Message(
-            "Joonas",
-            "TEST!"
-        ),
-        Message(
-            "Joonas",
-            "TEST!"
-        ),
-        Message(
-            "Joonas",
-            "TEST!"
-        ),
-    )
-}
 
 @Serializable
 object Conversation
 
 @Serializable
 object Settings
-
-data class Message(val author: String, val body: String)
 
 const val CHANNEL_ID = "default_channel_id"
 const val NOTIFICATION_ID = 1
@@ -166,6 +76,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val db = AppDatabase.getDatabase(this)
         val userDao = db.userDao()
+        val messageDao = db.messageDao()
 
         var initialUser: User
 
@@ -176,6 +87,11 @@ class MainActivity : ComponentActivity() {
         } else {
             initialUser = userDao.getUser()
         }
+
+        //INSERT TEST MESSAGE and get the list
+//        messageDao.insertMessage(
+//            MessageEntity(userId = initialUser.id, content = "Hello world!"))
+
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             // Create the NotificationChannel.
@@ -194,17 +110,21 @@ class MainActivity : ComponentActivity() {
         sensor.init() // start listening
 
         setContent {
-            HW4SensorsAndNotificationsTheme {
-                MyAppNavHost(initialUser, userDao)
+            ProjectTheme {
+                MyAppNavHost(initialUser, userDao, messageDao)
             }
         }
     }
 }
 
 @Composable
-fun MyAppNavHost(initialUser: User, userDao: UserDao) {
+fun MyAppNavHost(initialUser: User, userDao: UserDao, messageDao: MessageDao) {
     val navController = rememberNavController()
     var user by remember { mutableStateOf(initialUser) }
+    var messages by remember {
+        mutableStateOf(messageDao.getMessagesForUser(user.id))
+    }
+
 
     NavHost(
         navController = navController,
@@ -213,8 +133,14 @@ fun MyAppNavHost(initialUser: User, userDao: UserDao) {
         composable<Conversation> {
             ConversationScreen(
                 user,
+                messages,
                 onNavigateToSettings = {
                     navController.navigate(Settings)
+                },
+                onNewMessage = { newContent ->
+                    val newMessage = MessageEntity(userId = user.id, content = newContent)
+                    messageDao.insertMessage(newMessage)
+                    messages = messages + newMessage
                 }
             )
         }
@@ -242,7 +168,9 @@ fun MyAppNavHost(initialUser: User, userDao: UserDao) {
 @Composable
 fun ConversationScreen(
     user: User,
-    onNavigateToSettings: () -> Unit
+    messages: List<MessageEntity>,
+    onNavigateToSettings: () -> Unit,
+    onNewMessage: (String) -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -264,16 +192,41 @@ fun ConversationScreen(
                 }
             )
         },
+        bottomBar = {
+            NewMessage(onNewMessage)
+        }
     )
     { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding)) {
-            Conversation(SampleData.conversationSample, user)
+            Conversation(messages,user)
         }
     }
 }
 
 @Composable
-fun Conversation(messages: List<Message>, user: User) {
+fun NewMessage(onNewMessage: (String) -> Unit){
+    var textFieldValue by remember { mutableStateOf("") }
+
+    Row() {
+        TextField(
+            value = textFieldValue,
+            onValueChange =  { newValue -> textFieldValue = newValue },
+            placeholder = { Text("Type a message") }
+        )
+        //TODO Button moves when textbox becomes full. it should stay put.
+        Button(onClick = {
+            if (!textFieldValue.isEmpty()){
+                onNewMessage(textFieldValue)
+                textFieldValue = "" // clear input
+            }
+        }) {
+            Text("Send")
+        }
+    }
+}
+
+@Composable
+fun Conversation(messages: List<MessageEntity>, user: User) {
     LazyColumn {
         items(messages) { message ->
             MessageCard(message, user)
@@ -282,8 +235,11 @@ fun Conversation(messages: List<Message>, user: User) {
 }
 
 @Composable
-fun MessageCard(msg: Message, user: User) {
-    Row(modifier = Modifier.padding(all = 8.dp)) {
+fun MessageCard(msg: MessageEntity, user: User) {
+    Row(modifier = Modifier
+        .padding(all = 8.dp)
+        .fillMaxWidth() // this is added so the card is not depended on the text size
+    ) {
         Image(
             painter = rememberAsyncImagePainter(user.imageUri),
             contentDescription = "Profile picture",
@@ -323,7 +279,7 @@ fun MessageCard(msg: Message, user: User) {
                     .padding(1.dp)
             ) {
                 Text(
-                    text = msg.body,
+                    text = msg.content,
                     modifier = Modifier.padding(all = 4.dp),
                     // If the message is expanded, we display all its content
                     // otherwise we only display the first line
@@ -337,6 +293,7 @@ fun MessageCard(msg: Message, user: User) {
 
 // Got help from Philipp Lackner and his youtube video on how to use notifications:
 // https://www.youtube.com/watch?v=bHlLYhSrXvc
+@SuppressLint("MissingPermission")
 @Composable
 fun NotificationButton() {
     val context = LocalContext.current
@@ -464,7 +421,7 @@ fun UsernameInput(
 //@Preview
 //@Composable
 //fun PreviewConversation() {
-//    HW4SensorsAndNotificationsTheme {
+//    ProjectTheme {
 //        MyAppNavHost()
 //    }
 //}
