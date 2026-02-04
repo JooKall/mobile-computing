@@ -52,13 +52,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import coil3.compose.rememberAsyncImagePainter
 import com.example.hw4sensorsandnotifications.ui.theme.HW4SensorsAndNotificationsTheme
 import kotlinx.serialization.Serializable
@@ -163,6 +163,7 @@ object Settings
 data class Message(val author: String, val body: String)
 
 const val CHANNEL_ID = "default_channel_id"
+const val NOTIFICATION_ID = 1
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -184,7 +185,7 @@ class MainActivity : ComponentActivity() {
             // Create the NotificationChannel.
             val name = "Default Notifications"
             val descriptionText = "Default Notifications"
-            val importance = NotificationManager.IMPORTANCE_DEFAULT
+            val importance = NotificationManager.IMPORTANCE_HIGH
             val mChannel = NotificationChannel(CHANNEL_ID, name, importance)
             mChannel.description = descriptionText
             // Register the channel with the system. You can't change the importance
@@ -192,6 +193,9 @@ class MainActivity : ComponentActivity() {
             val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.createNotificationChannel(mChannel)
         }
+
+        val sensor = SensorTest(applicationContext)
+        sensor.init() // start listening
 
         setContent {
             HW4SensorsAndNotificationsTheme {
@@ -335,52 +339,26 @@ fun MessageCard(msg: Message, user: User) {
     }
 }
 
-fun showNotification(context: Context) {
-
-    val builder = NotificationCompat.Builder(context, CHANNEL_ID)
-        .setSmallIcon(R.drawable.ic_launcher_foreground)
-        .setContentTitle("Test Notification")
-        .setContentText("This is a test notification")
-        .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-        .setAutoCancel(true)
-
-    NotificationManagerCompat.from(context)
-        .notify(1, builder.build())
-}
-
-// Got really big help from Philipp Lackner and his youtube video on how to use notifications:
+// Got help from Philipp Lackner and his youtube video on how to use notifications:
 // https://www.youtube.com/watch?v=bHlLYhSrXvc
 @Composable
 fun NotificationButton() {
     val context = LocalContext.current
 
-    var hasNotificationPermission by remember {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            mutableStateOf(
-                ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) == PackageManager.PERMISSION_GRANTED
-            )
-        } else {
-            // On Android versions (< API 33) where notification permission does NOT exist, we treat it as already granted
-            mutableStateOf(true)
-        }
-    }
-
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
         onResult = { isGranted ->
-            hasNotificationPermission = isGranted
+            if (isGranted) {
+                showNotification(context, "Notifications enabled")
+            }
         }
     )
 
     Button(onClick = {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
-        if (hasNotificationPermission) {
-            showNotification(context)
+        } else {
+            showNotification(context, "Notifications enabled")
         }
     }) {
         Text("Enable Notifications")

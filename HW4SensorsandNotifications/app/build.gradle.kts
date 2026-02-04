@@ -44,6 +44,10 @@ android {
 }
 
 dependencies {
+    val work_version = "2.11.1"
+    // Kotlin + coroutines
+    implementation("androidx.work:work-runtime-ktx:${work_version}")
+
     val activity_version = "1.12.2"
     implementation("androidx.activity:activity-ktx:$activity_version")
 
