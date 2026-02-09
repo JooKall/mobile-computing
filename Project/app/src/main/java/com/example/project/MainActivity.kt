@@ -44,6 +44,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -58,8 +59,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import coil3.compose.rememberAsyncImagePainter
+import com.example.project.api.OpenWeatherService
 import com.example.project.ui.theme.ProjectTheme
 import kotlinx.serialization.Serializable
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 import java.io.File
 
 @Serializable
@@ -125,6 +132,8 @@ fun MyAppNavHost(initialUser: User, userDao: UserDao, messageDao: MessageDao) {
         mutableStateOf(messageDao.getMessagesForUser(user.id))
     }
 
+    // This is here so that the weather's state stays in the memory when switching views
+    val weatherState = remember { mutableStateOf<WeatherModel?>(null) }
 
     NavHost(
         navController = navController,
@@ -157,7 +166,8 @@ fun MyAppNavHost(initialUser: User, userDao: UserDao, messageDao: MessageDao) {
                             inclusive = true
                         }
                     }
-                }
+                },
+                weatherState
             )
         }
     }
@@ -207,13 +217,17 @@ fun ConversationScreen(
 fun NewMessage(onNewMessage: (String) -> Unit){
     var textFieldValue by remember { mutableStateOf("") }
 
-    Row() {
+    Row(modifier = Modifier.fillMaxWidth())
+    {
         TextField(
             value = textFieldValue,
             onValueChange =  { newValue -> textFieldValue = newValue },
-            placeholder = { Text("Type a message") }
+            placeholder = { Text("Type a message") },
+            modifier = Modifier.weight(1f)
         )
-        //TODO Button moves when textbox becomes full. it should stay put.
+
+        Spacer(modifier = Modifier.width(8.dp))
+
         Button(onClick = {
             if (!textFieldValue.isEmpty()){
                 onNewMessage(textFieldValue)
@@ -318,12 +332,58 @@ fun NotificationButton() {
     }
 }
 
+@Composable
+fun WeatherInfo(weatherState: MutableState<WeatherModel?>){
+    //val weatherState = remember { mutableStateOf<WeatherModel?>(null) }
+
+    Column {
+        Button(onClick = {
+            sendRequest(65.0121, 25.4651, OPENWEATHER_KEY, weatherState)
+        }) {
+            Text("Check the weather in Oulu")
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text("Temperature: ${weatherState.value?.main?.temp}°C")
+        Text("Humidity: ${weatherState.value?.main?.humidity} %")
+    }
+}
+
+fun sendRequest(
+    lat: Double,
+    lon: Double,
+    apiKey: String,
+    weather : MutableState<WeatherModel?>
+) {
+    val retrofit = Retrofit.Builder()
+        .baseUrl("https://api.openweathermap.org/data/2.5/")
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+
+    val api = retrofit.create(OpenWeatherService::class.java)
+    val response = api.getCurrentWeather(lat, lon, apiKey)
+
+    response.enqueue(object: Callback<WeatherModel>{
+        override fun onResponse(call: Call<WeatherModel?>, response: Response<WeatherModel?>) {
+            if(response.isSuccessful){
+                Log.d("Main", "success!" + response.body().toString())
+                weather.value = response.body()
+            }
+        }
+
+        override fun onFailure(call: Call<WeatherModel?>, t: Throwable) {
+            Log.e("Main", "Failed mate " + t.message.toString())
+        }
+    })
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     user: User,
     onProfileChange: (User) -> Unit,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    weatherState : MutableState<WeatherModel?>
 ) {
     Scaffold(
         topBar = {
@@ -355,6 +415,8 @@ fun SettingsScreen(
             UsernameInput(user, onProfileChange)
 
             NotificationButton()
+
+            WeatherInfo(weatherState)
         }
     }
 }
