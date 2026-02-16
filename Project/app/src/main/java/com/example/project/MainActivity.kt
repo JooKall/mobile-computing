@@ -1,6 +1,7 @@
 package com.example.project
 
 import android.Manifest
+import android.animation.ObjectAnimator
 import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -9,6 +10,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -54,7 +56,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.core.animation.doOnEnd
 import androidx.core.net.toUri
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -81,6 +85,10 @@ const val NOTIFICATION_ID = 1
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Got help to splashscreen implementation from Philipp Lackner:
+        // https://www.youtube.com/watch?v=eFZmMSm1G1c
+        installSplashScreen()
+
         val db = AppDatabase.getDatabase(this)
         val userDao = db.userDao()
         val messageDao = db.messageDao()
@@ -334,8 +342,6 @@ fun NotificationButton() {
 
 @Composable
 fun WeatherInfo(weatherState: MutableState<WeatherModel?>){
-    //val weatherState = remember { mutableStateOf<WeatherModel?>(null) }
-
     Column {
         Button(onClick = {
             sendRequest(65.0121, 25.4651, OPENWEATHER_KEY, weatherState)
